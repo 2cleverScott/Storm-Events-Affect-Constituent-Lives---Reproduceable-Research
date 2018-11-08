@@ -1,0 +1,82 @@
+---
+title: "Storm Events Affect Constituent Lives"
+author: "Scott Roberts"
+date: "April 30, 2016"
+output: 
+pdf_document: 
+fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis: 
+
+The purpose of this analysis is to determine the impact of storm events on people's lives and the larger economy. Perhaps with this knowledge, federal,state and local governments can allocate resources to those areas to early warning detections of the most harmful storm events.  As far as the economy, those government entities can set aside on money for economic damage yearly to mitigate farm and property damage. What we found was, based on storm data dating back to 1950, Tornados caused the most harm to population health with 96,979 combined Injuries and Fatalities. As for economic impacts, Tornadoes coupled with Hail cause the most damage of 1.6 billion dollars. Although these damage estimates are broad they are still significant. 
+
+##Data Processing
+First, we retrieved the data from the website, and extract it to a csv file. In order to process and transform the data we create a data frame from the csv file.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+#Obtain the data from the source website
+furl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(furl, destfile= "repdatadataStormData.csv.bz2", method="curl")
+#Create the data frame
+stormy <- read.csv("repdatadataStormData.csv.bz2")
+stormydf <- tbl_df(stormy)
+##Convert the dollar amounts to millions for property and farm damage
+
+##Property Damage Conversion
+stormydf$PROPDMGcv[stormydf$PROPDMGEXP == "B"] <- stormydf$PROPDMG[stormydf$PROPDMGEXP == "B"]*1000
+stormydf$PROPDMGcv[stormydf$PROPDMGEXP == "K"] <- stormydf$PROPDMG[stormydf$PROPDMGEXP == "K"]/1000
+stormydf$PROPDMGcv[stormydf$PROPDMGEXP == "H"] <- stormydf$PROPDMG[stormydf$PROPDMGEXP == "H"]/10000
+
+stormydf$PROPDMGcv[stormydf$PROPDMGEXP == "M"] <- stormydf$PROPDMG[stormydf$PROPDMGEXP == "M"]
+
+
+#Crop Damage Conversion
+stormydf$CROPDMGcv[stormydf$CROPDMGEXP == "B"] <- stormydf$CROPDMG[stormydf$CROPDMGEXP == "B"]*1000
+stormydf$CROPDMGcv[stormydf$CROPDMGEXP == "K"] <- stormydf$CROPDMG[stormydf$CROPDMGEXP == "K"]/1000
+stormydf$CROPDMGcv[stormydf$CROPDMGEXP == "H"] <- stormydf$CROPDMG[stormydf$CROPDMGEXP == "H"]/10000
+stormydf$CROPDMGcv[stormydf$CROPDMGEXP == "M"] <- stormydf$CROPDMG[stormydf$CROPDMGEXP == "M"]
+
+stormgrp <- group_by(stormydf, EVTYPE)
+```
+From there, we can begin the Analysis.
+
+##Analysis
+
+#Harm Caused by Storms
+After summarizing the data, and taking the top 5 events that cause harm. So we take the columns Injuries and Fatailities and make the Summary table.   
+```{r}
+
+stormgrp1 <- summarize(stormgrp, FatalNum = sum(FATALITIES), Injuries=sum(INJURIES), All = Injuries+FatalNum)
+arrange(stormgrp1, desc(FatalNum))
+ttl <- arrange(stormgrp1, desc(All, Injuries, FatalNum))[1:5,]
+ttl
+qplot(EVTYPE, data=ttl, geom="bar", weight=All, ylab=" Number of Injuries and Fatalities", xlab="Storm Event Type")
+
+```
+
+Economic Impacts of Storm Events
+
+Calculate the Economic damagegiven by the Property Damage and Crop Damage columns. First to get the actual dollar amount the Property Damage dollar factor multiply by a factor 1,000 or 1 million.
+
+```{r}
+
+stormfiscal <- summarize(stormgrp, Property = sum(PROPDMGcv), Crop=sum(CROPDMGcv), Both=Property+Crop)
+econimpact <- arrange(stormfiscal, desc(Both))[1:5,]
+econimpact
+barplot(econimpact$Both,names.arg= c("Tornadoes/Hail","Winds","Opal","Winter Storm","Heavy Rain/Surf"), xlab="Storm Event Type", ylab="Cost of Damages(millions)" )
+#qplot(EVTYPE, data=econimpact, geom="bar", weight=Both, ylab="Cost of Damages(millions)", xlab="Storm Event Type")
+
+```
+
+##Conclusions
+The results clearly point out that Tornadoes with Hail cause the most damage, and Tornadoes cause the most physical harm.
+
